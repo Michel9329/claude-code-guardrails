@@ -1,0 +1,22 @@
+{
+  "name": "claude-code-guardrails",
+  "version": "0.1.0",
+  "description": "Hooks for Claude Code that enforce project rules mechanically: a denied tool call cannot be forgotten.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Michel Dimitri",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "check": "node --check hooks/lib.mjs && node --check hooks/skill-preflight-gate.mjs && node --check hooks/skill-usage-track.mjs && node --check hooks/protected-paths-block.mjs && node --check hooks/git-discipline-gate.mjs && node --check hooks/deliverable-text-gate.mjs && node --check hooks/session-close-guard.mjs && node --check hooks/prebuild-ui-reuse-gate.mjs && node --check hooks/client-isolation-guard.mjs && node --check test/smoke.mjs",
+    "test": "node test/smoke.mjs"
+  },
+  "keywords": [
+    "claude-code",
+    "hooks",
+    "guardrails",
+    "ai-agents"
+  ],
+  "repository": "github:Michel9329/claude-code-guardrails"
+}

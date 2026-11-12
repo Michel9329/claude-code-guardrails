@@ -1,0 +1,129 @@
+// Copy this file to guardrails.config.json in your project root and edit it.
+// Comments (// and /* */) are allowed: the hooks strip them before parsing.
+// Paths are globs relative to the project root (CLAUDE_PROJECT_DIR), forward slashes, case-insensitive.
+//   *  matches inside one folder     **  matches across folders     ?  matches one character
+// A hook whose section is missing does nothing. With no config file at all, every hook allows everything.
+{
+  // Where the skill tracker and the gates keep their per-session state. Add it to .gitignore.
+  "stateDir": ".claude",
+
+  // 1. skill-preflight-gate + skill-usage-track
+  // Deny the first Edit/Write on matching paths until the skills below were invoked in this session.
+  "skillGate": {
+    "enabled": true,
+    // After this many denials in a row with no new skill loaded, the gate lets the write through
+    // and prints a warning. A broken tracker or an ignored instruction never freezes the work.
+    "maxDeniesWithoutProgress": 3,
+    // Subagent transcripts are skipped by default (set false to gate them too).
+    "skipSubagents": true,
+    "rules": [
+      {
+        "name": "any file in src",
+        "paths": ["src/**"],
+        "exclude": ["**/node_modules/**", "**/*.test.*"],
+        // ALL of these skills must have been invoked.
+        "requireSkills": ["my-method-skill"]
+      },
+      {
+        "name": "user-facing copy",
+        "paths": ["content/**/*.md", "docs/**/*.md"],
+        "requireSkills": ["my-writing-skill"],
+        // At least ONE of these skills must have been invoked.
+        "requireAnyOf": ["design-skill-a", "design-skill-b"],
+        "message": "Copy that readers see must go through the writing skill first."
+      }
+    ],
+    // Optional one-line explanation shown next to a missing skill.
+    "skillHints": {
+      "my-method-skill": "look at the real sources before you write anything"
+    }
+  },
+
+  // 2. protected-paths-block
+  // Deny Edit/Write on these paths unless an approval file unlocks them.
+  // FAIL-CLOSED: a config that cannot be parsed denies every edit that reaches this hook.
+  "protectedPaths": {
+    "enabled": true,
+    "patterns": [
+      "templates/**",
+      "tools/release/*.ts",
+      ".claude/agents/*.md"
+    ],
+    // Paths that stay editable even if a pattern above matches.
+    "allow": ["**/*.generated.md"],
+    // Approval file: a path, or a glob when you keep one per work unit
+    // (for example ".planning/phases/*/APPROVAL.md"). Every match is checked, any valid one counts.
+    "approvalFile": ".guardrails/APPROVAL.md",
+    // An approval older than this stops working.
+    "ttlDays": 14,
+    // Optional: only these names count as approvers. Leave out to accept any non-empty approved_by.
+    "approvers": ["Your Name"]
+    // The approval file must start with front matter like:
+    //   ---
+    //   approved_by: Your Name
+    //   approved_at: 2026-11-06
+    //   paths:
+    //     - templates/brand/**
+    //   ---
+    // "paths" is required: an approval has to say what it unlocks.
+  },
+
+  // 3. git-discipline-gate (Bash). Each rule can be switched off with false.
+  "git": {
+    "enabled": true,
+    "denyAmend": true,
+    "requirePathspecOnCommit": true,
+    "denyForcedRecursiveRm": true
+  },
+
+  // 4. deliverable-text-gate
+  // Patterns are JavaScript regular expressions checked against the NEW text only.
+  // "deny" blocks the write. "warn" prints a warning to the user and lets the write through.
+  "textRules": [
+    {
+      "name": "client deliverables",
+      "paths": ["clients/**"],
+      "extensions": ["md", "mdx", "html", "astro", "txt"],
+      // Optional built-in presets: "google-fonts-cdn" (deny), "em-dash" (warn),
+      // "italian-apostrophe-accent" (deny, for Italian text).
+      "presets": ["google-fonts-cdn", "em-dash", "italian-apostrophe-accent"],
+      "deny": [
+        { "pattern": "\\bTODO_REPLACE\\b", "flags": "", "message": "Placeholder left in a deliverable." }
+      ],
+      "warn": [
+        { "pattern": "\\blorem ipsum\\b", "flags": "i", "message": "Lorem ipsum found." }
+      ]
+    }
+  ],
+
+  // 5a. session-close-guard (Stop and PreCompact events)
+  "sessionClose": {
+    "enabled": true,
+    "stateFile": "STATUS.md",
+    "staleHours": 6,
+    "recentCommitHours": 12,
+    "message": "Update STATUS.md before closing."
+  },
+
+  // 5b. prebuild-ui-reuse-gate: a one-time checklist the first time a matching file is written in a session.
+  "firstEditChecklist": {
+    "enabled": true,
+    "paths": ["src/components/**", "src/**/*.{tsx,vue,astro}"],
+    "exclude": ["**/node_modules/**"],
+    "checklist": [
+      "Search the repo for a component that already does this (grep, then the other apps in this repo).",
+      "If one exists and works, port it instead of rewriting it.",
+      "Prefer native HTML/CSS over a new dependency."
+    ]
+  },
+
+  // 5c. client-isolation-guard ("project isolation")
+  // Content for project A must not carry names, colours or copy that belong to project B.
+  "projectIsolation": {
+    "enabled": true,
+    "projects": [
+      { "id": "acme",   "root": "clients/acme",   "guard": ["site/**"], "tokens": ["Acme Corp", "acme.example", "#ff5a00"] },
+      { "id": "globex", "root": "clients/globex", "guard": ["site/**"], "tokens": ["Globex", "globex.example", "#0a3d62"] }
+    ]
+  }
+}

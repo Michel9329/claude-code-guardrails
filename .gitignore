@@ -1,0 +1,6 @@
+node_modules/
+.env
+guardrails.config.json
+.claude/skill-usage-state.json
+.claude/skill-preflight-state.json
+.claude/first-edit-checklist-state.json
